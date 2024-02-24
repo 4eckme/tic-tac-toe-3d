@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tic-tac-toe 3D</title>
+<meta charset="UTF-8">
+<meta name="description" content="Tic-tac-toe 3D - 4x4x4">
+<meta name="keywords" content="tic-tac-toe 3d, tic tac toe 3d, 3d tic-tac-toe, 3d tic tac toe, 4x4x4, tic-tac-toe, tic tac toe, play, online, game">
+
+<style>
+html, body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    height: 100vh;
+    overflow: hidden;
+}
+h1 {
+    font-size: inherit;
+    margin: 0;
+}
+textarea{
+    opacity: 0;
+    position: absolute;
+    z-index: -100;
+}
+.actions {
+    font-size: 25px !important;
+    margin-top: 20px;
+    width: 960px;
+    position: absolute;
+    bottom: 10px;
+    font-size: 0.5cm;
+    font-family: sans-serif;
+    font-weight: bold;
+    height: 62px;
+}
+.hidden{
+    display: none;
+}
+.actions .div1 {
+    color: #006395;
+    margin: 16px 12px;
+    float: left;
+    cursor: pointer;
+}
+.actions input {
+    width: 500px;
+    margin: 16px 0;
+    height: 20px;
+    border: 0;
+    border-radius: 8px;
+    font-size: 20px;
+    padding: 10px;
+    margin-top: 8px;
+    border: 2px solid #000;
+    background: #ffffff;
+    color: #000;
+    box-shadow: inset 0px 1px 6px #55555reconnectionDelayMax: 100005;
+}
+.actions .div2 {
+    color: #e30f0f;
+    margin: 16px 12px;
+    float: right;
+    cursor: pointer;
+}
+.actions .div3 {
+    color: #006395;
+    margin: 5px 4px;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 25px;
+    border: 3px dotted;
+    padding: 6px 10px;
+    border-color: #aaa;
+}
+.actions .div1:hover {
+    border-bottom: 2px solid #006395;
+}
+
+.actions .div2:hover {
+    border-bottom: 2px solid #e30f0f;
+}
+.actions .div3:hover {
+    border: 3px dotted #333;
+}
+.actions .div3 .l {
+    color:#151515;
+    padding-right:10px;
+}
+.actions.a2 .div1{
+    cursor:default;
+    border-bottom:0;
+}
+.actions.a3 {
+    text-align: center;
+}
+.actions.a3 div {
+    color: #e30f0f;
+    margin: 16px 12px;
+    cursor: pointer;
+    display: inline-block;
+}
+.actions.a3 div.stop:hover {
+    border-bottom: 2px solid #e30f0f;
+}
+.actions.a3 div.wait:hover {
+    border-bottom: 2px solid #2ba0db;
+}
+.actions.a3 div.wait {
+    color: #2ba0db;
+    margin: 16px 12px;
+}
+.actions.a3 div.stop.stopped {
+    color: #151515;
+    border: 0;
+    cursor:default;
+}
+svg.stopped {
+    opacity: 0.5;
+}
+circle {
+    filter: drop-shadow(0 0 2px #0006);
+}
+circle:not([fill]) {
+    fill: rgba(255,255,255,0.75);
+    stroke:rgba(0,0,0,0.9);
+}
+circle.last[fill="red"] {
+    filter: drop-shadow(0 0 6px #08f);
+}
+
+circle.last[fill="black"] {
+    filter: drop-shadow(0 0 6px #08f);
+}
+</style>
+
+<script src="https://<%=host %>/socket.io/socket.io.js"></script>
+<!--script src="https://cdn.socket.io/socket.io-2.3.0.js"--><!--/script-->
+<script type="module">
+import * as d3 from "https://cdn.skypack.dev/d3@7.8.5";
+import * as d33d from "https://cdn.skypack.dev/d3-3d@1.0.0";
+
+window.go = 0;
+window.step = 0;
+window.first = 0;
+window.player = '';
+window.connected = 0;
+window.clr = ['black', 'red'];
+
+const p = function(x, y, z) {
+  return document.getElementById('point-'+x+'-'+y+'-'+z);
+}
+const check = function(line) {
+  var color = line[0].getAttribute('fill') ? line[0].getAttribute('fill') : 'none';
+  for (var i=1; i<line.length; i++) {
+    if (color != line[i].getAttribute('fill')) {
+      return false;
+    }
+  }
+  for (var i=0; i<line.length; i++)
+    line[i].classList.add('last');
+  return true;
+}
+const check_line = function(arrx, arry, arrz) {
+  var line = [];
+  var xl = arrx.length;
+  var yl = arry.length;
+  var zl = arrz.length;
+  var l = Math.max(xl, yl, zl);
+  for(var i=1; i<l; i++) {
+    if (xl == 1) arrx.push(arrx[0]);
+    if (yl == 1) arry.push(arry[0]);
+    if (zl == 1) arrz.push(arrz[0]);
+  }
+  for(var i=0; i<l; i++) {
+      line[i] = p(arrx[i],arry[i],arrz[i]);
+  }
+  return check(line);
+}
+window.check_step = function(x,y,z) {
+  var win = 0;
+  win += check_line([x],[y],[0,1,2,3]);
+  win += check_line([x],[0,1,2,3],[z]);
+  win += check_line([0,1,2,3],[y],[z]);
+  
+  win += check_line([x],[0,1,2,3],[0,1,2,3]);
+  win += check_line([x],[0,1,2,3],[3,2,1,0]);
+  win += check_line([0,1,2,3],[y],[0,1,2,3]);
+  win += check_line([0,1,2,3],[y],[3,2,1,0]);
+  win += check_line([0,1,2,3],[0,1,2,3],[z]);
+  win += check_line([0,1,2,3],[3,2,1,0],[z]);
+  
+  win += check_line([0,1,2,3],[0,1,2,3],[0,1,2,3]);
+  win += check_line([0,1,2,3],[3,2,1,0],[0,1,2,3]);
+  win += check_line([3,2,1,0],[0,1,2,3],[0,1,2,3]);
+  win += check_line([3,2,1,0],[3,2,1,0],[0,1,2,3]);
+  
+  if (win) {
+    document.querySelectorAll('circle').forEach(b=>b.removeAttribute('onclick'));
+  }
+}
+
+window.GO = function() {
+  if (window.step==0 || window.confirm("This action refresh the game")) {
+    window.go = 1;
+    window.step = 0;
+    window.first = 0;
+    //window.player = ''; // psh
+    window.connected = 0;
+    document.querySelector('.a1').classList.add('hidden');
+    document.querySelector('.a2').classList.remove('hidden');
+    document.querySelectorAll('circle').forEach(b=>b.removeAttribute('fill'));
+  }
+}
+window.copy = function(elm) {  
+  const el = document.createElement("textarea");
+  el.value = elm.innerHTML;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand("copy");
+  document.body.removeChild(el);
+  alert('Link has been copied');
+}
+window.cancel = function(){
+  window.go = 0;
+  window.step = 0;
+  window.first = 0;
+  window.player = '';
+  window.connected = 0;
+  document.querySelector('.a1').classList.remove('hidden');
+  document.querySelector('.a2').classList.add('hidden');
+}
+window.emit_step = function (elm) {
+  if (go) {
+    if(!elm.getAttribute('fill') && window.step%2 === window.first && window.connected == 1) {
+      elm.setAttribute('fill',window.clr[window.step++%2])
+      document.querySelectorAll('circle').forEach(b=>b.classList.remove('last'));
+      elm.classList.add("last");
+      window.check_step(elm.getAttribute('data-x'),elm.getAttribute('data-y'),elm.getAttribute('data-z'));
+      socket.emit('step', {
+        player:window.player,
+        x:elm.getAttribute('data-x'),
+        y:elm.getAttribute('data-y'),
+        z:elm.getAttribute('data-z')
+      })
+    }
+  } else {
+    if(!elm.getAttribute('fill')) {
+      elm.setAttribute('fill',window.clr[window.step++%2])
+      document.querySelectorAll('circle').forEach(b=>b.classList.remove('last'));
+      elm.classList.add("last");
+      window.check_step(elm.getAttribute('data-x'),elm.getAttribute('data-y'),elm.getAttribute('data-z'));
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const origin = { x: 480, y: 340 };
+    const j = 10;
+    const scale = 20;
+    const key = (d) => d.id;
+    const startAngle = Math.PI / 4;
+    
+    let scatter = [];
+    let yLine = [];
+    let xGrid = [];
+    let beta = 0;
+    let alpha = 0;
+    let mx, my, mouseX = 0, mouseY = 0;
+    
+    const svg = d3.select("svg")
+        .call(
+          d3.drag()
+            .on("drag", dragged)
+            .on("start", dragStart)
+            .on("end", dragEnd)
+        )
+        .append("g");
+    
+    const grid3d = d33d.gridPlanes3D()
+        .rows(20)
+        .origin(origin)
+        .rotateY(startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+  const points3d = d33d.points3D()
+    .origin(origin)
+    .rotateY(startAngle)
+    .rotateX(-startAngle)
+    .scale(scale);
+
+    const yScale3d = d33d.lineStrips3D()
+        .origin(origin)
+        .rotateY(startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+  function processData(data, tt) {
+    const xGrid = svg.selectAll("path.grid").data(data[0], key);
+    const points = svg.selectAll("circle").data(data[1], key);
+    points
+      .enter()
+      .append("circle")
+      .attr("id", (d) => (d.id))
+      .attr("title", (d) => (d.id))
+      .attr("data-x", (d) => (d.point.x))
+      .attr("data-y", (d) => (d.point.y))
+      .attr("data-z", (d) => (d.point.z))
+      .attr("class", "d3-3d")
+      .attr("onclick", "javascript:emit_step(this)")
+      .attr("opacity", 0)
+      .attr("cx",(d) => (d.projected.x))
+      .attr("cy",(d) => (d.projected.y))
+      .attr("cz",(d) => (d.rotated.z))
+      .merge(points)
+      .transition()
+      .duration(tt)
+      .attr("r", (d) => ((d.rotated.z+35)/2))
+      .attr("stroke", 'black')
+      .attr("opacity", 1)
+      .attr("cx", (d) => (d.projected.x))
+      .attr("cy", (d) => (d.projected.y));
+
+    points.exit().remove();
+
+    const yScale = svg.selectAll("path.yScale").data(data[2]);
+   
+    d3.selectAll(".d3-3d").sort(points3d.sort);
+  }
+
+  function init() {
+    xGrid = [];
+    scatter = [];
+    yLine = [{}];
+      
+    let cnt = 0;
+      
+    for (let z = 0; z < 4; z++) {
+      for (let x = 0; x < 4; x++) {
+        for (let y = 0; y < 4; y++) {
+          scatter.push({
+            x: x*5-7.5,
+            y: y*5-7.5,
+            z: z*5-7.5,
+            point: {x:x, y:y, z:z},
+            id: "point-"+x+"-"+y+"-"+z
+          }); cnt++;
+        }  
+      }
+    }
+    
+    const data = [
+      grid3d(xGrid),
+      points3d(scatter)
+    ];
+    
+    processData(data, 1000);
+  }
+
+  function dragStart(event) {
+    mx = event.x;
+    my = event.y;
+  }
+
+  function dragged(event) {
+    beta = (event.x - mx + mouseX) * (Math.PI / 230) / 2;
+    alpha = (event.y - my + mouseY) * (Math.PI / 230) / 2 * -1;
+
+    const data = [
+      grid3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(xGrid),
+      points3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(scatter),
+      yScale3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)([yLine]),
+    ];
+
+    processData(data, 0);
+  }
+
+  function dragEnd(event) {
+    mouseX = event.x - mx + mouseX;
+    mouseY = event.y - my + mouseY;
+  }
+  
+  var url = parseInt(window.location.href.split("/").pop());
+  var urlstr = (url ? '/'+url.toString() : '');
+  if (urlstr.length) {
+    window.go = 1;
+    window.connected = 1;
+  }
+  
+  window.socket = io.connect('https://<%=host %>'+urlstr, {
+    transports: ['websocket'],
+    auth: {
+      jointo: (url ? url : Math.random().toString().slice(2)),
+      player: Math.random().toString().slice(2)
+    }
+  });
+  window.socket.on("connected", (d) => {
+    window.player = d.id;
+    document.getElementById("l").innerHTML = "https://<%=host %>/"+d.id.slice(1);
+  });
+  window.socket.on("go", (d) => {
+    window.connected = 1;
+    document.querySelector('.a2').classList.add('hidden');
+    document.querySelector('.a3').classList.remove('hidden');
+  });
+  window.socket.on("step", (d) => {
+    if (window.step == 0 && window.first == 0 && window.go == 1 && window.connected == 1) window.first = 1;
+    var point_id = "point-"+d.data.x+'-'+d.data.y+'-'+d.data.z
+    
+    if(!document.getElementById(point_id).getAttribute('fill')) {
+      var elm = document.getElementById(point_id);
+      elm.setAttribute('fill', window.clr[window.step++%2]);
+      document.querySelectorAll('circle').forEach(b=>b.classList.remove('last'));
+      elm.classList.add("last");
+      window.check_step(elm.getAttribute('data-x'),elm.getAttribute('data-y'),elm.getAttribute('data-z'));
+    }
+  });
+  window.socket.on("refresh", (d) => {
+    if(d.status == 1) {
+      window.go = 1;
+      window.step = 0;
+      window.first = 0;
+      window.connected = 1;
+      document.querySelectorAll('circle').forEach(b=>b.removeAttribute('fill'));
+      document.getElementById("stop").classList.remove("wait");
+    } else {
+      document.getElementById('stop').classList.add('wait');
+    }
+  });
+  window.socket.on("my_disconnect", (d) => {
+    document.getElementById('svg').classList.add('stopped');
+    document.getElementById('stop').innerHTML = 'DISCONNECTED';
+    document.getElementById('stop').classList.add('stopped');
+    document.querySelectorAll('circle').forEach(b=>b.removeAttribute('onclick'));
+  });
+  
+  init();
+});
+</script>
+</head>
+
+<body>
+<svg id="svg" width="960" height="680"></svg>
+<script>if(window.location.href.split('/').pop()){document.write('<div class="actions a1 hidden">')}else{document.write('<div class="actions a1">')}</script>
+  <div class="div1 online" onclick="GO()"><h1>PLAY ONLINE</h1></div>
+  <!--noindex--><div class="div2 clear" onclick="document.querySelectorAll('circle').forEach(b=>b.removeAttribute('fill'));step=0;">CLEAR</div><!--/noindex-->
+</div>
+<!--noindex-->
+  <div class="actions a2 hidden">
+    <div class="div2 cancel" onclick="cancel()">CANCEL</div>
+    <div class="div3 link" id="link" onclick="copy(document.getElementById('l'))"><span class="l">copy</span><span id="l"></span></div>
+  </div>
+  <script>if(window.location.href.split('/').pop()){document.write('<div class="actions a3">')}else{document.write('<div class="actions a3 hidden">')}</script>
+    <div class="div4 stop" id="stop" onclick="socket.emit('refresh');">REFRESH</div>
+  <div>
+<!--/noindex-->
+</body>
+</html>
